@@ -30,6 +30,11 @@ Sessions live in memory (refresh = sign in again). Passwords are salted SHA-256 
 Web app runs as the owner, so data protection relies on the server-side checks in the code. Days are counted as calendar days.
 Gmail quota ~100 emails/day; in-app notifications are the fallback.
 
+## Dashboard Usage Instructions
+
+- Use the Department, Leave Type and Status slicers to filter the dashboard.
+- Click the Clear Filters button to reset the selected filters and view the overall data.
+
 ## Live Demo
 
 The LeaveFlow HR Management System is available here:
