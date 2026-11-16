@@ -29,3 +29,16 @@ Employee -> manager (step 1) -> manager's manager, else Admin (step 2). Balance 
 Sessions live in memory (refresh = sign in again). Passwords are salted SHA-256 (Apps Script has no bcrypt); not production-grade.
 Web app runs as the owner, so data protection relies on the server-side checks in the code. Days are counted as calendar days.
 Gmail quota ~100 emails/day; in-app notifications are the fallback.
+
+## Live Demo
+
+The LeaveFlow HR Management System is available here:
+
+https://script.google.com/macros/s/AKfycbxWWPwIrCvOCP4UYVhRu3cMcJ4-ISQKb02Wm2BSI33tMefdsHVhp7zy2evo4DdUSNom/exec
+
+The project also includes an HR Analytics Dashboard developed using Microsoft Power BI Desktop
+
+## Project Screenshots
+
+Screenshots of the LeaveFlow application and Power BI dashboard are included in this repository.
+
