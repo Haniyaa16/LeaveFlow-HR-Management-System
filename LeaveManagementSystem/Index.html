@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html><head><base target="_top"><meta charset="utf-8"><title>LeaveFlow HR</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+:root{--p:#6d28d9;--pl:#f5f3ff}
+body{background:#faf8ff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#4c1d95,#7c3aed 60%,#c4b5fd)}
+.lcard{background:#fff;border-radius:18px;padding:36px;width:100%;max-width:400px;box-shadow:0 20px 50px #0003}
+.btn-p{background:var(--p);color:#fff;border:0}.btn-p:hover{background:#5b21b6;color:#fff}
+.brand{color:var(--p);font-weight:700;font-size:1.4rem}
+.shell{display:flex;min-height:100vh}
+.side{width:230px;background:#fff;border-right:1px solid #ede9fe;padding:20px 14px;display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.side a{padding:10px 14px;border-radius:10px;color:#4b5563;text-decoration:none;font-weight:500}
+.side a.on,.side a:hover{background:var(--pl);color:var(--p)}
+.main{flex:1;padding:24px;min-width:0}
+.cardx{background:#fff;border:1px solid #ede9fe;border-radius:14px;padding:18px;box-shadow:0 1px 4px #6d28d90d}
+.stat{font-size:1.9rem;font-weight:700;color:var(--p)}
+.table thead th{background:var(--pl);color:#4c1d95;font-weight:600;white-space:nowrap}
+.badge{font-weight:600}.b-Pending{background:#fef3c7;color:#92400e}.b-Approved{background:#dcfce7;color:#166534}
+.b-Rejected{background:#fee2e2;color:#991b1b}.b-Cancelled{background:#e5e7eb;color:#374151}
+@media(max-width:768px){.shell{flex-direction:column}.side{width:100%;flex-direction:row;overflow-x:auto;padding:10px}.side a{white-space:nowrap}.main{padding:14px}}
+</style></head><body>
+<div id="login"><div class="lcard">
+ <div class="brand mb-1">LeaveFlow HR</div><p class="text-muted">Leave request &amp; approval management</p>
+ <form onsubmit="doLogin(event)">
+  <label class="form-label">Email</label><input id="em" type="email" class="form-control mb-3" required>
+  <label class="form-label">Password</label><input id="pw" type="password" class="form-control mb-3" required>
+  <div id="lerr" class="text-danger small mb-2"></div>
+  <button class="btn btn-p w-100">Sign in</button>
+ </form></div></div>
+<div id="app" class="d-none"><div class="shell">
+ <div class="side"><div class="brand mb-3 px-2">LeaveFlow HR</div><div id="nav" class="d-flex flex-md-column gap-1"></div>
+  <div class="mt-md-auto small text-muted px-2"><div id="who"></div><a href="#" onclick="logout();return false">Sign out</a></div></div>
+ <div class="main"><h4 id="title" class="mb-3"></h4><div id="msg" class="alert d-none"></div><div id="view"></div></div>
+</div></div>
+<script>
+var $=function(s){return document.querySelector(s)};
+var esc=function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})};
+var T='',D=null,V='dash',Q='',S='';
+var NAV={Employee:[['dash','Dashboard'],['apply','Apply Leave'],['mine','My Requests']],
+ Manager:[['dash','Dashboard'],['apply','Apply Leave'],['appr','Approvals'],['team','Team Requests'],['mine','My Requests']],
+ Admin:[['dash','Dashboard'],['appr','Approvals'],['team','All Requests'],['emps','Employees'],['log','Activity']]};
+var TITLES={dash:'Dashboard',apply:'Apply for Leave',mine:'My Requests',appr:'Pending Approvals',team:'Leave Requests',emps:'Employees & Balances',log:'System Activity'};
+function run(f){var a=[].slice.call(arguments,1);return new Promise(function(ok,no){var r=google.script.run.withSuccessHandler(ok).withFailureHandler(no);r[f].apply(r,a)})}
+async function api(f){var a=[].slice.call(arguments,1);var r=await run.apply(null,[f,T].concat(a));
+ if(!r||!r.ok){if(r&&/Session/.test(r.error))setTimeout(logout,1500);throw new Error(r?r.error:'Server error')}return r}
+function msg(t,ok){var m=$('#msg');m.className='alert alert-'+(ok?'success':'danger');m.textContent=t;setTimeout(function(){m.className='alert d-none'},7000);scrollTo(0,0)}
+async function doLogin(e){e.preventDefault();$('#lerr').textContent='';
+ try{var r=await run('login',$('#em').value,$('#pw').value);if(!r.ok)throw new Error(r.error);T=r.token;
+  $('#login').classList.add('d-none');$('#app').classList.remove('d-none');await load()}
+ catch(x){$('#lerr').textContent=x.message||'Login failed'}}
+function logout(){location.reload()}
+async function load(){try{D=await api('getData');draw()}catch(x){msg(x.message)}}
+function go(k){V=k;Q='';S='';draw()}
+function draw(){var u=D.user;
+ $('#nav').innerHTML=NAV[u.Role].map(function(n){return '<a href="#" class="'+(n[0]==V?'on':'')+'" onclick="go(\''+n[0]+'\');return false">'+n[1]+'</a>'}).join('');
+ $('#who').textContent=u.FullName+' · '+u.Role;$('#title').textContent=TITLES[V];
+ $('#view').innerHTML=VIEWS[V]();if(V=='dash')chart();if(V=='mine'||V=='team')tb(V)}
+var badge=function(s){return '<span class="badge b-'+s.split(' ')[0]+'">'+esc(s)+'</span>'};
+var cnt=function(s){return D.scope.filter(function(r){return r.Status.indexOf(s)==0}).length};
+var VIEWS={
+dash:function(){var rem=D.balances.reduce(function(a,b){return a+Number(b.RemainingLeaves)},0);
+ var c=[];if(D.totalEmployees!=null)c.push(['Total Employees',D.totalEmployees]);
+ c.push(['Pending Requests',cnt('Pending')],['Approved Requests',cnt('Approved')],['Rejected Requests',cnt('Rejected')]);
+ if(D.user.Role!='Admin')c.push(['Remaining Leave',rem]);
+ var h='<div class="row g-3 mb-3">'+c.map(function(x){return '<div class="col-6 col-lg"><div class="cardx"><div class="text-muted small">'+x[0]+'</div><div class="stat">'+x[1]+'</div></div></div>'}).join('')+'</div><div class="row g-3"><div class="col-lg-5"><div class="cardx"><h6>Request status</h6><canvas id="ch" height="200"></canvas></div></div><div class="col-lg-7">';
+ if(D.user.Role!='Admin')h+='<div class="cardx mb-3"><h6>Leave balance</h6><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Type</th><th>Total</th><th>Used</th><th>Pending</th><th>Remaining</th></tr></thead><tbody>'+D.balances.map(function(b){return '<tr><td>'+esc(b.LeaveType)+'</td><td>'+b.TotalLeaves+'</td><td>'+b.UsedLeaves+'</td><td>'+b.PendingLeaves+'</td><td><b>'+b.RemainingLeaves+'</b></td></tr>'}).join('')+'</tbody></table></div></div>';
+ return h+'<div class="cardx"><h6>Notifications</h6>'+(D.notes.length?D.notes.map(function(n){return '<div class="border-bottom py-2 small"><b>'+esc(n.NotificationType)+'</b><br>'+esc(n.Message)+'</div>'}).join(''):'<div class="text-muted small">No notifications</div>')+'</div></div></div>'},
+apply:function(){var t=new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+ return '<div class="cardx" style="max-width:560px"><form onsubmit="sendReq(event)"><label class="form-label">Leave type</label><select id="lt" class="form-select mb-3">'+D.types.map(function(x){return '<option>'+esc(x)+'</option>'}).join('')+'</select>'+
+ '<div class="row"><div class="col"><label class="form-label">Start date</label><input id="sd" type="date" min="'+t+'" class="form-control mb-3" required oninput="dd()"></div><div class="col"><label class="form-label">End date</label><input id="ed" type="date" min="'+t+'" class="form-control mb-3" required oninput="dd()"></div></div>'+
+ '<div id="dn" class="small text-muted mb-3"></div><label class="form-label">Reason</label><textarea id="rs" class="form-control mb-3" rows="3" maxlength="500" required></textarea><button class="btn btn-p">Submit request</button></form></div>'},
+mine:function(){return filt()},team:function(){return filt()},
+appr:function(){return '<div class="cardx">'+(D.pending.length?'<div class="table-responsive"><table class="table align-middle"><thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Days</th><th>Reason</th><th>Stage</th><th></th></tr></thead><tbody>'+D.pending.map(function(r){return '<tr><td>'+esc(r.EmployeeName)+'</td><td>'+esc(r.LeaveType)+'</td><td>'+esc(r.StartDate)+' → '+esc(r.EndDate)+'</td><td>'+r.NumberOfDays+'</td><td>'+esc(r.Reason)+'</td><td>'+badge(r.Status)+'</td><td class="text-nowrap"><button class="btn btn-sm btn-success" onclick="act(\''+r.RequestID+'\',\'Approve\')">Approve</button> <button class="btn btn-sm btn-outline-danger" onclick="act(\''+r.RequestID+'\',\'Reject\')">Reject</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="text-muted">Nothing waiting for you.</div>')+'</div>'},
+emps:function(){var ms=D.employees.filter(function(e){return e.Role!='Employee'});
+ return '<div class="row g-3"><div class="col-lg-7"><div class="cardx"><div class="table-responsive"><table class="table table-sm"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Dept</th><th>Role</th><th>Manager</th></tr></thead><tbody>'+D.employees.map(function(e){return '<tr><td>'+esc(e.EmployeeID)+'</td><td>'+esc(e.FullName)+'</td><td>'+esc(e.Email)+'</td><td>'+esc(e.Department)+'</td><td>'+esc(e.Role)+'</td><td>'+esc(e.ManagerID)+'</td></tr>'}).join('')+'</tbody></table></div></div></div>'+
+ '<div class="col-lg-5"><div class="cardx mb-3"><h6>Add employee</h6><input id="an" class="form-control mb-2" placeholder="Full name"><input id="ae" class="form-control mb-2" placeholder="Email"><input id="ad" class="form-control mb-2" placeholder="Department"><select id="ar" class="form-select mb-2"><option>Employee</option><option>Manager</option><option>Admin</option></select><select id="am" class="form-select mb-2"><option value="">No manager</option>'+ms.map(function(e){return '<option value="'+esc(e.EmployeeID)+'">'+esc(e.FullName)+'</option>'}).join('')+'</select><div class="small text-muted mb-2">Temporary password: Welcome@123</div><button class="btn btn-p btn-sm" onclick="addEmp()">Add</button></div>'+
+ '<div class="cardx"><h6>Set leave balance</h6><select id="be" class="form-select mb-2">'+D.employees.filter(function(e){return e.Role!='Admin'}).map(function(e){return '<option value="'+esc(e.EmployeeID)+'">'+esc(e.FullName)+'</option>'}).join('')+'</select><select id="bt" class="form-select mb-2">'+D.types.map(function(x){return '<option>'+esc(x)+'</option>'}).join('')+'</select><input id="bv" type="number" min="0" class="form-control mb-2" placeholder="Total days"><button class="btn btn-p btn-sm" onclick="setBal()">Save</button></div></div></div>'},
+log:function(){return '<div class="cardx"><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead><tbody>'+D.audit.map(function(a){return '<tr><td>'+esc(a.Timestamp)+'</td><td>'+esc(a.UserID)+'</td><td>'+esc(a.Action)+'</td><td>'+esc(a.Description)+'</td></tr>'}).join('')+'</tbody></table></div></div>'}};
+function filt(){return '<div class="d-flex gap-2 mb-3"><input class="form-control" placeholder="Search name, type, ID…" oninput="Q=this.value;tb(V)"><select class="form-select w-auto" onchange="S=this.value;tb(V)"><option value="">All statuses</option><option>Pending First Approval</option><option>Pending Second Approval</option><option>Approved</option><option>Rejected</option><option>Cancelled</option></select></div><div id="tb" class="cardx"></div>'}
+function tb(v){var src=v=='mine'?D.mine:D.scope,q=Q.toLowerCase();
+ var l=src.filter(function(r){return(!S||r.Status==S)&&(r.EmployeeName+r.LeaveType+r.RequestID).toLowerCase().indexOf(q)>=0});
+ $('#tb').innerHTML=l.length?'<div class="table-responsive"><table class="table align-middle"><thead><tr><th>ID</th><th>Employee</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th>Note</th><th></th></tr></thead><tbody>'+l.map(function(r){
+  var can=r.EmployeeID==D.user.EmployeeID&&r.Status.indexOf('Pending')==0;
+  return '<tr><td>'+esc(r.RequestID)+'</td><td>'+esc(r.EmployeeName)+'</td><td>'+esc(r.LeaveType)+'</td><td>'+esc(r.StartDate)+' → '+esc(r.EndDate)+'</td><td>'+r.NumberOfDays+'</td><td>'+badge(r.Status)+'</td><td class="small">'+esc(r.RejectionReason)+'</td><td>'+(can?'<button class="btn btn-sm btn-outline-danger" onclick="cancelReq(\''+r.RequestID+'\')">Cancel</button>':'')+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="text-muted">No requests found.</div>'}
+function chart(){try{new Chart($('#ch'),{type:'doughnut',data:{labels:['Approved','Pending','Rejected','Cancelled'],datasets:[{data:[cnt('Approved'),cnt('Pending'),cnt('Rejected'),cnt('Cancelled')],backgroundColor:['#22c55e','#f59e0b','#ef4444','#9ca3af']}]}})}catch(e){}}
+function dd(){var s=$('#sd').value,e=$('#ed').value;$('#dn').textContent=(s&&e&&e>=s)?'Duration: '+(Math.round((new Date(e)-new Date(s))/864e5)+1)+' day(s)':''}
+async function sendReq(e){e.preventDefault();try{var r=await api('submitLeave',{type:$('#lt').value,start:$('#sd').value,end:$('#ed').value,reason:$('#rs').value});
+ await load();go('mine');msg('Request '+r.id+' submitted.'+(r.warning?' Note: '+r.warning:''),true)}catch(x){msg(x.message)}}
+async function cancelReq(id){if(!confirm('Cancel this request?'))return;try{await api('cancelLeave',id);await load();V='mine';draw();msg('Request cancelled.',true)}catch(x){msg(x.message)}}
+async function act(id,a){var c='';if(a=='Reject'){c=prompt('Reason for rejection (required):');if(!c)return}
+ try{await api('decide',id,a,c);await load();V='appr';draw();msg('Request '+a.toLowerCase()+'d.',true)}catch(x){msg(x.message)}}
+async function addEmp(){try{await api('addEmployee',{name:$('#an').value,email:$('#ae').value,dept:$('#ad').value,role:$('#ar').value,managerId:$('#am').value});await load();V='emps';draw();msg('Employee added.',true)}catch(x){msg(x.message)}}
+async function setBal(){try{await api('setBalance',$('#be').value,$('#bt').value,$('#bv').value);msg('Balance updated.',true)}catch(x){msg(x.message)}}
+</script></body></html>

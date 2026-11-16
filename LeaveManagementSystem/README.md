@@ -1,0 +1,30 @@
+# LeaveFlow HR - Leave Request & Approval System (Google Apps Script)
+
+Files: Code.gs (helpers, login, dashboard data, admin), Setup.gs (creates sheets + demo data),
+LeaveWorkflow.gs (submit, cancel, 2-step approval, balance, calendar, notifications),
+Index.html (whole UI), appsscript.json (manifest).
+
+## Deploy
+1. Create a Google Sheet "LeaveManagementDB" > Extensions > Apps Script.
+2. Create files with the exact names above and paste the code (Code.gs, Setup.gs, LeaveWorkflow.gs are Script files; Index is an HTML file). Project Settings > "Show appsscript.json" and paste the manifest.
+3. In Setup.gs edit the four SEED_ emails (use addresses you can read).
+4. Select setupDatabase > Run. Approve permissions. Check the sheets appear.
+5. Optional: create a Google Calendar "Company Leave", copy its ID, run setCalendarId('ID') after editing the line in the editor.
+6. Deploy > New deployment > Web app > Execute as: Me, Who has access: Anyone > Deploy. Open the URL.
+7. Sign in with a seeded email and password Welcome@123.
+After every code change: Deploy > Manage deployments > edit > New version.
+
+## Approval chain
+Employee -> manager (step 1) -> manager's manager, else Admin (step 2). Balance is reserved as Pending on submit and moves to Used only on final approval.
+
+## Manual test checklist
+1 login (good/bad password) | 2 submit request | 3 end before start / past start | 4 request more days than remaining |
+5 overlapping dates (own = blocked, teammate = warning) | 6 manager approves -> goes to admin | 7 manager rejects (comment required) |
+8 admin approves -> Used +n, Pending -n, calendar event | 9 admin rejects -> Pending released | 10 balances correct |
+11 click Approve twice -> second is refused | 12 calendar event exists once | 13 cancel pending request |
+14 employee cannot see others' requests; non-admin cannot call admin functions | 15 Power BI (not included yet)
+
+## Known limits
+Sessions live in memory (refresh = sign in again). Passwords are salted SHA-256 (Apps Script has no bcrypt); not production-grade.
+Web app runs as the owner, so data protection relies on the server-side checks in the code. Days are counted as calendar days.
+Gmail quota ~100 emails/day; in-app notifications are the fallback.
